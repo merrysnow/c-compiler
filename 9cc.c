@@ -8,21 +8,20 @@
 typedef enum {
     TK_RESERVED, // 기호
     TK_NUM, // 정수 토큰
-    TK_EOF,
+    TK_EOF, // 입력 끝을 표시하는 토큰
 } TokenKind;
 
-typedef struct Token Token;
+typedef struct Token{
+    TokenKind kind; // 토큰형
+    struct Token *next; // 다음 입력 토큰
+    int val; // kind가 TK_NUM의 경우, 그 수치
+    char *str; // 토큰 문자열
+}Token;
 
-struct Token {
-    TokenKind kind;
-    Token *next;
-    int val;
-    char *str;
-};
-
+// 현재 가리키고 있는 토큰
 Token *token;
 
-void error(char *fmt, ...);
+void error_at(char *loc, char *fmt, ...);
 bool consume(char op);
 void expect(char op);
 int expect_number();
@@ -58,9 +57,16 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void error(char *fmt, ...){
+char * user_input;
+
+void error_at(char *loc, char *fmt, ...){
     va_list ap;
     va_start(ap, fmt);
+
+    int pos = loc - user_input;
+    fprintf(stderr, "%s\n", user_input);
+    fprintf(stderr, "%*s", pos, " ");
+    fprintf(stderr, "^ ");
     vfprintf(stderr, fmt ,ap);
     fprintf(stderr, "\n");
     exit(1);
@@ -75,13 +81,13 @@ bool consume(char op){
 
 void expect(char op){
     if (token->kind != TK_RESERVED || token->str[0] != op)
-        error("'%c'가 아닙니다", op);
+        error_at(token->str, "'%c'가 아닙니다", op);
     token = token->next;
 }
 
 int expect_number(){
     if (token->kind != TK_NUM)
-        error("숫자가 아닙니다");
+        error_at(token->str,"숫자가 아닙니다");
     int val = token->val;
     token = token->next;
     return val;
@@ -104,6 +110,7 @@ Token *tokenize(char *p){
     head.next = NULL;
     Token *cur = &head;
 
+    // 공백 문자 스킵
     while (*p) {
         if (isspace(*p)){
             p++;
@@ -120,7 +127,7 @@ Token *tokenize(char *p){
             cur->val = strtol(p, &p, 10);
             continue;
         }
-        error("토큰화할 수 없습니다");
+        error_at(token->str,"토큰화할 수 없습니다");
     }
 
     new_token(TK_EOF, cur, p);
